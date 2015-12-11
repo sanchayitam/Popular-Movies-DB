@@ -98,7 +98,7 @@ public void setMovieData( MovieItem[] movieData){
             url = new URL(IMG_URL);
             Log.v("Poster Path ...", IMG_URL);
 
-            Picasso.with(mContext).load(String.valueOf(url)).error(R.drawable.ic_img_not_found).resize(255, 255). into(holder.imageView);
+            Picasso.with(mContext).load(String.valueOf(url)).error(R.drawable.ic_img_not_found).into(holder.imageView);
 
 
           } catch (MalformedURLException e) {
