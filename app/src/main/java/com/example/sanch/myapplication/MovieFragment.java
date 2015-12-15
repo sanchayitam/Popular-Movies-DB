@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.graphics.Movie;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -27,7 +28,12 @@ import android.widget.ListView;
 import android.support.v4.app.FragmentActivity;
 import android.widget.Toast;
 
+import com.squareup.picasso.Downloader;
 import com.squareup.picasso.Picasso;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.Response;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -44,9 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * A placeholder fragment containing a simple view.
- */
+
 public class MovieFragment extends Fragment {
     private MovieAdapter movieAdapter;
     private MovieItem[] mMovies;
@@ -62,6 +66,12 @@ public class MovieFragment extends Fragment {
 
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+
+       updateMovies(mSort_key);
+    }
  // public interface Callback{ void onItemSelected(MovieItem movie);}
 
     @Override
@@ -74,13 +84,13 @@ public class MovieFragment extends Fragment {
 
         movieAdapter = new MovieAdapter(getActivity(), new ArrayList<MovieItem>());
         mGridView.setAdapter(movieAdapter);
-
-         mGridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        mGridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
              @Override
              public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
+
                  // start the details screen
                  final  MovieItem movie = movieAdapter.getItem(position);
-            //     ((Callback) getActivity()).onItemSelected(movie);
+
                  Log.v("what have I clicked on",movie.getTitle());
                  final  Intent intent = new Intent(getActivity(),DetailActivity.class);
                  intent.putExtra(MovieItem.EXTRA_MOVIES,movie);
@@ -112,28 +122,39 @@ public class MovieFragment extends Fragment {
                 } else {
                  updateMovies(mSort_key);
             }
+
         return rootView;
     }
 
     private void updateMovies(String sort_by)
     {
+
         FetchMovieDB MovieTask = new FetchMovieDB();
         MovieTask.execute(sort_by);
     }
 
     @Override
     public void onSaveInstanceState(Bundle savedInstanceState) {
+        super.onSaveInstanceState(savedInstanceState);
         if(!mSort_key.contentEquals(POPULAR_MOVIES)){
+
             savedInstanceState.putString(SORT_KEY, mSort_key);
         }
         if(mMovies != null) {
 
             savedInstanceState.putParcelableArray(MOVIES_KEYS, mMovies);
         }
-        super.onSaveInstanceState(savedInstanceState);
+
     }
 
-    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+  //  super.onRestoreInstanceState(savedInstanceState);
+        mSort_key = savedInstanceState.getString(SORT_KEY);
+        mMovies =  (MovieItem[]) savedInstanceState.getParcelableArray(MOVIES_KEYS);
+
+    }
+
+   @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
@@ -187,14 +208,7 @@ public class MovieFragment extends Fragment {
 
         @Override
         protected MovieItem[] doInBackground(String... params) {
-
-            HttpURLConnection urlConnection = null;
-            BufferedReader reader = null;
-            String movieJsonStr = null;
-
             try {
-                //Using Picasso To Feth Images and Load them into Views
-                //57c8bf138eab4c78e72bc17cb9ab65e5
 
                 Log.v("Sort by key ..",params[0]);
                 final String Movie_url = "http://api.themoviedb.org/3/discover/movie?";
@@ -204,69 +218,33 @@ public class MovieFragment extends Fragment {
                         .appendPath("discover").appendPath("movie")
                         .appendQueryParameter("sort_by", params[0])
                         .appendQueryParameter("api_key",getString(R.string.themoviesdb_api_key));
-                       // .appendQueryParameter("language","en")
-                       // .appendQueryParameter("include_image_language","en,null");
+
 
                 URL url = new URL(builder.toString());
                 Log.v("URL ...." ,builder.toString());
                // URL url = new URL("http://api.themoviedb.org/3/discover/movie?sort_by=popularity.desc&api_key=57c8bf138eab4c78e72bc17cb9ab65e5");
+                OkHttpClient client = new OkHttpClient();
+                Request request = new Request.Builder()
+                        .url(url)
+                        .build();
 
-                urlConnection = (HttpURLConnection) url.openConnection();
-                urlConnection.setRequestMethod("GET");
-                urlConnection.connect();
+                Response response = client.newCall(request).execute();
 
                 // Read the input stream into a String
-                InputStream inputStream = urlConnection.getInputStream();
+               String  inputStream = response.body().string();
 
-                StringBuffer buffer = new StringBuffer();
                 if (inputStream == null) {
                     // Nothing to do.
                     return null;
-
                 }
-                reader = new BufferedReader(new InputStreamReader(inputStream));
-
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    // Since it's JSON, adding a newline isn't necessary (it won't affect parsing)
-                    // But it does make debugging a *lot* easier if you print out the completed
-                    // buffer for debugging.
-
-                    buffer.append(line + "\n");
-                }
-
-                if (buffer.length() == 0) {
-                    // Stream was empty.  No point in parsing.
-                    return null;
-                }
-                movieJsonStr = buffer.toString();
-                 return parseJsonStr(movieJsonStr);
-
+                return parseJsonStr(inputStream);
             } catch (
                     IOException e
                     )
-
             {
                 Log.e(LOG_TAG, "Error ", e);
-                // If the code didn't successfully get the weather data, there's no point in attemping
-                // to parse it.
                 return null;
-
-            } finally {
-                if (urlConnection != null) {
-                    urlConnection.disconnect();
-                }
-                if (reader != null) {
-                    try {
-                        reader.close();
-                    } catch (final IOException e) {
-                        Log.e(LOG_TAG, "Error closing stream", e);
-                    }
-                }
             }
-
-          //  return null;
-
         }
 
 
@@ -323,8 +301,8 @@ public class MovieFragment extends Fragment {
                return null;
         }
     }
-  }
 
+}
 
 
 
